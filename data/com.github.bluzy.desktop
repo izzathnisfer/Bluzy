@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Bluzy
+GenericName=Bluetooth Speaker Mode
+Comment=Turn your laptop into a Bluetooth speaker
+Exec=bluzy-launch
+Icon=com.github.bluzy
+Type=Application
+Categories=AudioVideo;Utility;GTK;
+Keywords=bluetooth;speaker;audio;receiver;a2dp;wireless;
+StartupNotify=true
+Terminal=false
+X-GNOME-UsesNotifications=true

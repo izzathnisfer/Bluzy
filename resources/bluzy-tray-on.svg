@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bluzy Tray Icon — ON state (blue Bluetooth, waiting)
+  Copyright (c) 2026 Bluzy Contributors
+  SPDX-License-Identifier: MIT
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <g transform="translate(11, 3)" fill="none" stroke="#3584e4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="0" y1="0" x2="0" y2="16"/>
+    <polyline points="-5,4 5,8 0,12"/>
+    <polyline points="-5,12 5,8 0,4"/>
+  </g>
+</svg>

@@ -1,0 +1,99 @@
+/* Bluzy — Custom GTK4 CSS Overrides
+ * Copyright (c) 2026 Bluzy Contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Minimal overrides on top of the Adwaita theme.
+ * Most styling comes from libadwaita defaults.
+ */
+
+/* ===================================================================
+ * Hero Section
+ * =================================================================== */
+
+.hero-icon {
+    color: @accent_color;
+    opacity: 0.9;
+    transition: opacity 200ms ease;
+}
+
+.hero-icon:hover {
+    opacity: 1.0;
+}
+
+/* ===================================================================
+ * Status Indicator Dot
+ * =================================================================== */
+
+.status-dot {
+    min-width: 12px;
+    min-height: 12px;
+    border-radius: 50%;
+    transition: background-color 300ms ease;
+}
+
+/* Idle / Off — grey */
+.status-idle {
+    background-color: alpha(@window_fg_color, 0.3);
+}
+
+/* Waiting — blue with subtle pulse */
+.status-waiting {
+    background-color: @accent_color;
+    animation: pulse-blue 2s ease-in-out infinite;
+}
+
+/* Connected — amber */
+.status-connected {
+    background-color: #f5a623;
+}
+
+/* Streaming — green with active pulse */
+.status-streaming {
+    background-color: #2ec27e;
+    animation: pulse-green 1.2s ease-in-out infinite;
+}
+
+/* ===================================================================
+ * Pulse Animations
+ * =================================================================== */
+
+@keyframes pulse-blue {
+    0%   { opacity: 1.0; }
+    50%  { opacity: 0.4; }
+    100% { opacity: 1.0; }
+}
+
+@keyframes pulse-green {
+    0%   { opacity: 1.0; box-shadow: 0 0 0 0 alpha(#2ec27e, 0.5); }
+    50%  { opacity: 0.85; box-shadow: 0 0 0 6px alpha(#2ec27e, 0.0); }
+    100% { opacity: 1.0; box-shadow: 0 0 0 0 alpha(#2ec27e, 0.0); }
+}
+
+/* ===================================================================
+ * Volume Section
+ * =================================================================== */
+
+scale trough {
+    min-height: 6px;
+}
+
+scale highlight {
+    background-color: @accent_color;
+    border-radius: 3px;
+}
+
+/* ===================================================================
+ * Device Row Styling
+ * =================================================================== */
+
+row.device-row {
+    transition: background-color 200ms ease;
+}
+
+/* ===================================================================
+ * Toast Customizations
+ * =================================================================== */
+
+toast {
+    font-weight: 500;
+}

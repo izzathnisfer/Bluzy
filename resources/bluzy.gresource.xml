@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bluzy — GResource Bundle Definition
+  Copyright (c) 2026 Bluzy Contributors
+  SPDX-License-Identifier: MIT
+-->
+<gresources>
+  <gresource prefix="/com/github/bluzy">
+    <file preprocess="xml-stripblanks">bluzy.svg</file>
+    <file>style.css</file>
+  </gresource>
+</gresources>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bluzy — AppStream Metadata
+  Copyright (c) 2026 Bluzy Contributors
+  SPDX-License-Identifier: MIT
+-->
+<component type="desktop-application">
+  <id>com.github.bluzy</id>
+
+  <name>Bluzy</name>
+  <summary>Turn your laptop into a Bluetooth speaker</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      Bluzy lets you use your Ubuntu laptop as a wireless Bluetooth speaker.
+      Enable Speaker Mode and connect your phone — audio plays through your
+      laptop's speakers instantly.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>One-toggle Bluetooth Speaker Mode (A2DP Sink)</li>
+      <li>Real-time connection status and device name display</li>
+      <li>System tray icon with quick controls</li>
+      <li>Configurable speaker name and pairing confirmation</li>
+      <li>Auto-connect memory for trusted devices</li>
+      <li>Volume control for incoming audio</li>
+      <li>Native GNOME look and feel with Libadwaita</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.github.bluzy.desktop</launchable>
+
+  <url type="homepage">https://github.com/bluzy/bluzy</url>
+  <url type="bugtracker">https://github.com/bluzy/bluzy/issues</url>
+
+  <developer id="com.github.bluzy">
+    <name>Bluzy Contributors</name>
+  </developer>
+
+  <provides>
+    <binary>bluzy</binary>
+  </provides>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <categories>
+    <category>Audio</category>
+    <category>Bluetooth</category>
+    <category>Utility</category>
+  </categories>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.0.0" date="2026-03-31">
+      <description>
+        <p>Initial release of Bluzy.</p>
+        <ul>
+          <li>Bluetooth Speaker Mode toggle</li>
+          <li>Real-time connection status</li>
+          <li>System tray integration</li>
+          <li>Auto-connect device memory</li>
+          <li>Volume control</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

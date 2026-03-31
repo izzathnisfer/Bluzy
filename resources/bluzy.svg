@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Bluzy App Icon — Bluetooth + Speaker
+  A Bluetooth symbol merged with speaker sound waves.
+  Copyright (c) 2026 Bluzy Contributors
+  SPDX-License-Identifier: MIT
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3584e4"/>
+      <stop offset="100%" stop-color="#1c71d8"/>
+    </linearGradient>
+    <linearGradient id="icon-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#deddda"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bg-grad)" />
+  <circle cx="64" cy="64" r="58" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
+
+  <!-- Bluetooth symbol (centered, slightly left) -->
+  <g transform="translate(50, 34)" fill="none" stroke="url(#icon-grad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Vertical line -->
+    <line x1="0" y1="0" x2="0" y2="60"/>
+    <!-- Upper arrow -->
+    <polyline points="-14,15 14,30 0,45"/>
+    <!-- Lower arrow -->
+    <polyline points="-14,45 14,30 0,15"/>
+  </g>
+
+  <!-- Speaker waves (right side) -->
+  <g transform="translate(78, 52)" fill="none" stroke="url(#icon-grad)" stroke-width="3" stroke-linecap="round" opacity="0.8">
+    <path d="M 4,12 C 10,8 10,16 4,12" />
+    <path d="M 10,6 C 20,0 20,24 10,18" />
+    <path d="M 16,-2 C 30,-8 30,32 16,26" />
+  </g>
+</svg>
