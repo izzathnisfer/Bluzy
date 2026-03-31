@@ -8,5 +8,5 @@ Connect your phone and play audio through your laptop's speakers wirelessly.
 """
 
 __version__ = "1.0.0"
-__app_id__ = "com.github.bluzy"
+__app_id__ = "com.github.izzathnisfer.bluzy"
 __app_name__ = "Bluzy"

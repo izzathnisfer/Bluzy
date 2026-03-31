@@ -5,7 +5,7 @@
   SPDX-License-Identifier: MIT
 -->
 <component type="desktop-application">
-  <id>com.github.bluzy</id>
+  <id>com.github.izzathnisfer.bluzy</id>
 
   <name>Bluzy</name>
   <summary>Turn your laptop into a Bluetooth speaker</summary>
@@ -31,12 +31,12 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">com.github.bluzy.desktop</launchable>
+  <launchable type="desktop-id">com.github.izzathnisfer.bluzy.desktop</launchable>
 
-  <url type="homepage">https://github.com/bluzy/bluzy</url>
-  <url type="bugtracker">https://github.com/bluzy/bluzy/issues</url>
+  <url type="homepage">https://github.com/izzathnisfer/Bluzy</url>
+  <url type="bugtracker">https://github.com/izzathnisfer/Bluzy/issues</url>
 
-  <developer id="com.github.bluzy">
+  <developer id="com.github.izzathnisfer.bluzy">
     <name>Bluzy Contributors</name>
   </developer>
 

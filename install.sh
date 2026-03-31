@@ -195,13 +195,13 @@ success "Icons installed."
 info "Installing desktop entry…"
 
 mkdir -p "$DESKTOP_DIR"
-cp "$SCRIPT_DIR/data/com.github.bluzy.desktop" "$DESKTOP_DIR/"
+cp "$SCRIPT_DIR/data/com.github.izzathnisfer.bluzy.desktop" "$DESKTOP_DIR/"
 
 # Update the Exec path and Icon to use the installed location
 sed -i "s|Exec=.*|Exec=python3 $INSTALL_DIR/launch.py|" \
-    "$DESKTOP_DIR/com.github.bluzy.desktop"
+    "$DESKTOP_DIR/com.github.izzathnisfer.bluzy.desktop"
 sed -i "s|Icon=.*|Icon=bluzy|" \
-    "$DESKTOP_DIR/com.github.bluzy.desktop"
+    "$DESKTOP_DIR/com.github.izzathnisfer.bluzy.desktop"
 
 success "Desktop entry installed."
 

@@ -615,7 +615,7 @@ class BluzyWindow(Adw.ApplicationWindow):
     def _manage_autostart(self, enabled: bool) -> None:
         """Add or remove the .desktop autostart entry."""
         autostart_dir = Path.home() / ".config" / "autostart"
-        autostart_file = autostart_dir / "com.github.bluzy.desktop"
+        autostart_file = autostart_dir / "com.github.izzathnisfer.bluzy.desktop"
 
         if enabled:
             autostart_dir.mkdir(parents=True, exist_ok=True)
@@ -624,7 +624,7 @@ class BluzyWindow(Adw.ApplicationWindow):
                 "Name=Bluzy\n"
                 "Comment=Turn your laptop into a Bluetooth speaker\n"
                 "Exec=python3 {install_dir}/main.py --minimized\n"
-                "Icon=com.github.bluzy\n"
+                "Icon=bluzy\n"
                 "Type=Application\n"
                 "X-GNOME-Autostart-enabled=true\n"
                 "Hidden=false\n"

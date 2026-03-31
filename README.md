@@ -48,11 +48,37 @@ Bluzy is a native GNOME desktop application that turns your Ubuntu laptop into a
 
 ## Installation
 
-### One-Command Install
+### 📦 Download & Install (Recommended)
+
+Download the latest `.deb` package from [GitHub Releases](https://github.com/izzathnisfer/Bluzy/releases):
 
 ```bash
-git clone https://github.com/bluzy/bluzy.git
-cd bluzy
+# Download the latest release
+wget https://github.com/izzathnisfer/Bluzy/releases/download/v1.0.0/bluzy_1.0.0_all.deb
+
+# Install (auto-resolves all dependencies)
+sudo apt install ./bluzy_1.0.0_all.deb
+```
+
+Or simply **double-click** the `.deb` file in your file manager to install via GNOME Software.
+
+After installation:
+- 🔍 Search **"Bluzy"** in your app grid
+- 🖥️ Or run `bluzy` from any terminal
+
+To uninstall:
+
+```bash
+sudo apt remove bluzy
+```
+
+---
+
+### 🔧 Install from Source
+
+```bash
+git clone https://github.com/izzathnisfer/Bluzy.git
+cd Bluzy
 bash install.sh
 ```
 
@@ -62,6 +88,12 @@ The installer will:
 3. Add your user to the `bluetooth` group (if needed)
 4. Deploy app files to `~/.local/share/bluzy/`
 5. Install the `.desktop` file and icon for your app drawer
+
+To uninstall a source installation:
+
+```bash
+bash uninstall.sh
+```
 
 ### Manual Dependencies
 
@@ -215,29 +247,33 @@ Then enable it in GNOME Extensions or restart your session.
 
 ```
 bluzy/
-├── bluzy/
-│   ├── __init__.py              # Package metadata
-│   ├── main.py                  # Entry point
-│   ├── app.py                   # Adw.Application lifecycle
-│   ├── window.py                # Main window UI
-│   ├── tray.py                  # System tray (GTK3 subprocess)
-│   ├── tray_dbus.py             # D-Bus IPC for app↔tray
-│   ├── bluetooth_manager.py     # BlueZ D-Bus integration
-│   ├── bluetooth_agent.py       # Auto-accept pairing agent
-│   ├── audio_manager.py         # PipeWire/PulseAudio profiles
-│   ├── config_manager.py        # User preferences
-│   └── utils.py                 # System checks & helpers
+├── bluzy/                           # Python package
+│   ├── __init__.py                  # Package metadata & version
+│   ├── main.py                      # Entry point
+│   ├── app.py                       # Adw.Application lifecycle
+│   ├── window.py                    # Main window UI
+│   ├── tray.py                      # System tray (GTK3 subprocess)
+│   ├── tray_dbus.py                 # D-Bus IPC for app↔tray
+│   ├── bluetooth_manager.py         # BlueZ D-Bus integration
+│   ├── bluetooth_agent.py           # Auto-accept pairing agent
+│   ├── audio_manager.py             # PipeWire/PulseAudio profiles
+│   ├── config_manager.py            # User preferences
+│   └── utils.py                     # System checks & helpers
 ├── resources/
-│   ├── bluzy.svg                # App icon
-│   ├── bluzy-tray-*.svg         # Tray state icons
-│   ├── style.css                # Custom GTK4 CSS
-│   └── bluzy.gresource.xml      # GResource bundle
+│   ├── bluzy.png                    # App icon
+│   ├── bluzy-tray-*.svg             # Tray state icons
+│   ├── style.css                    # Custom GTK4 CSS
+│   └── bluzy.gresource.xml          # GResource bundle
 ├── data/
-│   ├── com.github.bluzy.desktop # Desktop launcher
-│   └── com.github.bluzy.metainfo.xml
-├── install.sh                   # One-command installer
-├── requirements.txt             # Python dependencies
-└── README.md                    # This file
+│   ├── com.github.izzathnisfer.bluzy.desktop
+│   └── com.github.izzathnisfer.bluzy.metainfo.xml
+├── packaging/
+│   └── build-deb.sh                 # .deb package builder
+├── dist/                            # Built packages (gitignored)
+├── install.sh                       # One-command source installer
+├── uninstall.sh                     # Source install uninstaller
+├── requirements.txt                 # Python dependencies
+└── README.md                        # This file
 ```
 
 ---
@@ -279,8 +315,8 @@ Contributions are welcome! Here's how to get started:
 ### Development Setup
 
 ```bash
-git clone https://github.com/bluzy/bluzy.git
-cd bluzy
+git clone https://github.com/izzathnisfer/Bluzy.git
+cd Bluzy
 
 # Install dependencies
 sudo apt install -y python3-gi python3-gi-cairo gir1.2-gtk-4.0 \
