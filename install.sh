@@ -155,7 +155,8 @@ chmod +x "$INSTALL_DIR/launch.py"
 
 # Copy resources
 cp "$SCRIPT_DIR/resources/"*.css "$INSTALL_DIR/resources/"
-cp "$SCRIPT_DIR/resources/"*.svg "$INSTALL_DIR/resources/"
+cp "$SCRIPT_DIR/resources/"*.svg "$INSTALL_DIR/resources/" 2>/dev/null || true
+cp "$SCRIPT_DIR/resources/"*.png "$INSTALL_DIR/resources/" 2>/dev/null || true
 cp "$SCRIPT_DIR/resources/"*.xml "$INSTALL_DIR/resources/" 2>/dev/null || true
 
 success "Application files installed."
@@ -166,13 +167,24 @@ success "Application files installed."
 
 info "Installing application icon…"
 
-mkdir -p "$ICON_DIR"
-cp "$SCRIPT_DIR/resources/bluzy.svg" "$ICON_DIR/com.github.bluzy.svg"
+# Install main app icon as PNG at multiple sizes for dock, app grid, etc.
+PNG_ICON="$SCRIPT_DIR/resources/bluzy.png"
+if [ -f "$PNG_ICON" ]; then
+    for size in 128 256 512; do
+        SIZE_DIR="$HOME/.local/share/icons/hicolor/${size}x${size}/apps"
+        mkdir -p "$SIZE_DIR"
+        cp "$PNG_ICON" "$SIZE_DIR/bluzy.png"
+    done
+    # Also install to the scalable directory as fallback
+    mkdir -p "$ICON_DIR"
+    cp "$PNG_ICON" "$ICON_DIR/bluzy.png"
+fi
 
-# Also install tray icons
-cp "$SCRIPT_DIR/resources/bluzy-tray-off.svg" "$ICON_DIR/"
-cp "$SCRIPT_DIR/resources/bluzy-tray-on.svg" "$ICON_DIR/"
-cp "$SCRIPT_DIR/resources/bluzy-tray-streaming.svg" "$ICON_DIR/"
+# Install SVG tray icons
+mkdir -p "$ICON_DIR"
+cp "$SCRIPT_DIR/resources/bluzy-tray-off.svg" "$ICON_DIR/" 2>/dev/null || true
+cp "$SCRIPT_DIR/resources/bluzy-tray-on.svg" "$ICON_DIR/" 2>/dev/null || true
+cp "$SCRIPT_DIR/resources/bluzy-tray-streaming.svg" "$ICON_DIR/" 2>/dev/null || true
 
 success "Icons installed."
 
@@ -185,8 +197,10 @@ info "Installing desktop entry…"
 mkdir -p "$DESKTOP_DIR"
 cp "$SCRIPT_DIR/data/com.github.bluzy.desktop" "$DESKTOP_DIR/"
 
-# Update the Exec path to use the installed location
+# Update the Exec path and Icon to use the installed location
 sed -i "s|Exec=.*|Exec=python3 $INSTALL_DIR/launch.py|" \
+    "$DESKTOP_DIR/com.github.bluzy.desktop"
+sed -i "s|Icon=.*|Icon=bluzy|" \
     "$DESKTOP_DIR/com.github.bluzy.desktop"
 
 success "Desktop entry installed."

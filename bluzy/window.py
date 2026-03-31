@@ -137,11 +137,27 @@ class BluzyWindow(Adw.ApplicationWindow):
             halign=Gtk.Align.CENTER,
         )
 
-        # Icon
-        icon = Gtk.Image.new_from_icon_name("bluetooth-active-symbolic")
-        icon.set_pixel_size(64)
-        icon.add_css_class("hero-icon")
-        box.append(icon)
+        # Icon — use custom logo if available, fallback to themed icon
+        icon_paths = [
+            Path(__file__).parent.parent / "resources" / "bluzy.png",
+            Path.home() / ".local" / "share" / "bluzy" / "resources" / "bluzy.png",
+        ]
+        icon_loaded = False
+        for icon_path in icon_paths:
+            if icon_path.exists():
+                picture = Gtk.Picture.new_for_filename(str(icon_path))
+                picture.set_size_request(96, 96)
+                picture.set_content_fit(Gtk.ContentFit.CONTAIN)
+                picture.add_css_class("hero-icon")
+                box.append(picture)
+                icon_loaded = True
+                break
+
+        if not icon_loaded:
+            icon = Gtk.Image.new_from_icon_name("bluetooth-active-symbolic")
+            icon.set_pixel_size(64)
+            icon.add_css_class("hero-icon")
+            box.append(icon)
 
         # Title
         title = Gtk.Label(label="Bluetooth Speaker Mode")

@@ -80,6 +80,9 @@ class BluzyApp(Adw.Application):
         # Load custom CSS
         self._load_css()
 
+        # Set the application icon from the custom PNG
+        self._set_app_icon()
+
         # Initialize configuration
         self._config = ConfigManager()
 
@@ -181,6 +184,29 @@ class BluzyApp(Adw.Application):
                 return
 
         logger.warning("Custom CSS file not found.")
+
+    # ==================================================================
+    # Application Icon
+    # ==================================================================
+
+    def _set_app_icon(self) -> None:
+        """Set the application icon from the custom PNG."""
+        icon_paths = [
+            # Development: relative to the script
+            Path(__file__).parent.parent / "resources" / "bluzy.png",
+            # Installed
+            Path.home() / ".local" / "share" / "bluzy" / "resources" / "bluzy.png",
+        ]
+
+        for icon_path in icon_paths:
+            if icon_path.exists():
+                Gtk.Window.set_default_icon_name("bluzy")
+                # Also set as a Gio.ThemedIcon so notifications use it
+                self.set_resource_base_path(None)
+                logger.info("App icon set from %s", icon_path)
+                return
+
+        logger.debug("Custom app icon not found, using default.")
 
     # ==================================================================
     # Pre-flight Checks
