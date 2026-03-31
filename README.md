@@ -1,7 +1,7 @@
 # 🔊 Bluzy — Bluetooth Speaker Mode for Ubuntu
 
 <p align="center">
-  <img src="resources/bluzy.svg" alt="Bluzy" width="128" height="128">
+  <img src="resources/bluzy.png" alt="Bluzy" width="128" height="128">
 </p>
 
 <p align="center">
