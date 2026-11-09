@@ -17,6 +17,7 @@ Layout:
                         ├── Speaker mode toggle (AdwSwitchRow)
                         ├── Status indicator (animated dot + label)
                         ├── Connected devices list (AdwPreferencesGroup)
+                        ├── Audio output selector (AdwComboRow)
                         ├── Settings group (alias, confirmation, autostart)
                         └── Volume control slider
 
@@ -56,8 +57,8 @@ class BluzyWindow(Adw.ApplicationWindow):
             application=app,
             title="Bluzy",
             default_width=420,
-            default_height=580,
-            resizable=False,
+            default_height=760,
+            resizable=True,
         )
 
         self._bt = bt_manager
@@ -71,10 +72,16 @@ class BluzyWindow(Adw.ApplicationWindow):
         self._device_rows: dict[str, Adw.ActionRow] = {}
         self._alias_entry: Optional[Adw.EntryRow] = None
         self._volume_scale: Optional[Gtk.Scale] = None
+        self._output_row: Optional[Adw.ComboRow] = None
+        self._output_targets = [None]
+        self._suppress_output_signal = False
+        self._suppress_volume_signal = False
         self._suppress_switch_signal = False
 
         self._build_ui()
         self._connect_signals()
+        self._on_outputs_changed(self._audio.outputs)
+        self._audio.outputs.start()
 
         # Show onboarding on first launch
         if self._config.first_launch:
@@ -122,8 +129,9 @@ class BluzyWindow(Adw.ApplicationWindow):
         main_box.append(self._build_toggle_section())
         main_box.append(self._build_status_section())
         main_box.append(self._build_devices_section())
-        main_box.append(self._build_settings_section())
+        main_box.append(self._build_output_section())
         main_box.append(self._build_volume_section())
+        main_box.append(self._build_settings_section())
 
     # ------------------------------------------------------------------
     # Hero Section
@@ -231,6 +239,25 @@ class BluzyWindow(Adw.ApplicationWindow):
         return self._devices_group
 
     # ------------------------------------------------------------------
+    # Audio Output Section
+    # ------------------------------------------------------------------
+
+    def _build_output_section(self) -> Gtk.Widget:
+        """Choose a playback device or a port on a device."""
+        group = Adw.PreferencesGroup(title="Audio Output")
+        self._output_row = Adw.ComboRow(
+            title="Playback Device",
+            subtitle="Looking for audio outputs…",
+            model=Gtk.StringList.new(["System Default"]),
+        )
+        self._output_row.add_prefix(
+            Gtk.Image.new_from_icon_name("audio-speakers-symbolic")
+        )
+        self._output_row.connect("notify::selected", self._on_output_selected)
+        group.add(self._output_row)
+        return group
+
+    # ------------------------------------------------------------------
     # Settings Section
     # ------------------------------------------------------------------
 
@@ -276,7 +303,10 @@ class BluzyWindow(Adw.ApplicationWindow):
 
     def _build_volume_section(self) -> Gtk.Widget:
         """Volume control slider for incoming audio."""
-        group = Adw.PreferencesGroup(title="Volume")
+        group = Adw.PreferencesGroup(
+            title="Output Volume",
+            description="Device volume is shared with other apps using this output.",
+        )
 
         box = Gtk.Box(
             orientation=Gtk.Orientation.HORIZONTAL,
@@ -335,6 +365,8 @@ class BluzyWindow(Adw.ApplicationWindow):
         self._bt.connect("error", self._on_error)
         self._bt.connect("pairing-requested", self._on_pairing_requested)
         self._audio.connect("error", self._on_error)
+        self._audio.outputs.connect("changed", self._on_outputs_changed)
+        self._audio.outputs.connect("error", self._on_error)
 
     # ==================================================================
     # UI Event Handlers
@@ -388,8 +420,57 @@ class BluzyWindow(Adw.ApplicationWindow):
 
     def _on_volume_changed(self, scale: Gtk.Scale) -> None:
         """Handle volume slider changes."""
+        if self._suppress_volume_signal:
+            return
         volume = int(scale.get_value())
         self._audio.set_volume(volume)
+
+    def _on_output_selected(self, row: Adw.ComboRow, _pspec) -> None:
+        """Apply a user choice; programmatic list refreshes never reroute audio."""
+        if self._suppress_output_signal:
+            return
+        index = row.get_selected()
+        if index < len(self._output_targets):
+            self._audio.outputs.select(self._output_targets[index])
+
+    def _on_outputs_changed(self, outputs) -> None:
+        """Reflect hotplug, saved preferences and the selected device volume."""
+        state = outputs.state
+        labels = ["System Default"] + [device.label for device in state.devices]
+        targets = [None] + [device.target for device in state.devices]
+        if state.missing:
+            labels.append("Saved Output (disconnected)")
+            targets.append(state.preferred)
+        selected = targets.index(state.preferred) if state.preferred in targets else 0
+        self._suppress_output_signal = True
+        try:
+            model = self._output_row.get_model()
+            current = [model.get_string(i) for i in range(model.get_n_items())]
+            self._output_targets = targets
+            if current != labels:
+                self._output_row.set_model(Gtk.StringList.new(labels))
+            self._output_row.set_selected(selected)
+        finally:
+            self._suppress_output_signal = False
+        self._output_row.set_sensitive(outputs.available and not outputs.selecting)
+        if outputs.selecting:
+            subtitle = "Switching audio output…"
+        elif not outputs.available:
+            subtitle = "Audio service unavailable; retrying…"
+        elif state.missing:
+            subtitle = "Saved output disconnected; using system default"
+        else:
+            subtitle = state.effective_label
+        self._output_row.set_subtitle(subtitle)
+        self._volume_scale.set_sensitive(
+            outputs.available and not outputs.selecting and state.volume is not None
+        )
+        if state.volume is not None:
+            self._suppress_volume_signal = True
+            try:
+                self._volume_scale.set_value(state.volume)
+            finally:
+                self._suppress_volume_signal = False
 
     # ==================================================================
     # BluetoothManager Signal Handlers
@@ -401,6 +482,11 @@ class BluzyWindow(Adw.ApplicationWindow):
             state = SpeakerState[state_name]
         except KeyError:
             return
+
+        self._audio.outputs.routing_enabled = state in (
+            SpeakerState.WAITING, SpeakerState.CONNECTED, SpeakerState.STREAMING
+        )
+        self._audio.outputs.refresh()
 
         status_messages = {
             SpeakerState.OFF: "Speaker mode is off",

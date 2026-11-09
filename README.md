@@ -29,6 +29,8 @@ Bluzy is a native GNOME desktop application that turns your Ubuntu laptop into a
 - 🔒 **Pairing Confirmation** — Optional security prompt for new device connections
 - 💾 **Auto-Connect Memory** — Remember trusted devices and auto-enable per device
 - 🔊 **Volume Control** — Adjust incoming audio volume
+- 🎧 **Audio Output Selector** — Choose speakers, wired headphones, USB, HDMI, or another connected output directly in Bluzy
+- 🔄 **Remembered Output** — Restore your choice on restart and reconnect; fall back to the system default while it is unplugged
 - 🎨 **Native GNOME Look** — Built with GTK4 + Libadwaita, follows HIG
 - 🌙 **Dark/Light Mode** — Automatic via Adwaita style manager
 
@@ -54,10 +56,10 @@ Download the latest `.deb` package from [GitHub Releases](https://github.com/izz
 
 ```bash
 # Download the latest release
-wget https://github.com/izzathnisfer/Bluzy/releases/download/v1.0.0/bluzy_1.0.0_all.deb
+wget https://github.com/izzathnisfer/Bluzy/releases/download/v2.0.0/bluzy_2.0.0_all.deb
 
 # Install (auto-resolves all dependencies)
-sudo apt install ./bluzy_1.0.0_all.deb
+sudo apt install ./bluzy_2.0.0_all.deb
 ```
 
 Or simply **double-click** the `.deb` file in your file manager to install via GNOME Software.
@@ -147,7 +149,14 @@ python3 bluzy/main.py --debug
 2. **Enable Speaker Mode** — flip the toggle switch
 3. **Connect your phone** — open Bluetooth settings on your phone, you'll see "Bluzy Speaker" (or your custom name)
 4. **Play audio** — music, podcasts, or any audio will play through your laptop speakers!
-5. **Disable** — flip the toggle off to disconnect and stop being discoverable
+5. **Choose where to listen** — use **Audio Output → Playback Device** to select your laptop speakers, headphones, USB audio, HDMI, or any output exposed by your audio service. Speaker and headphone ports on the same sound card appear separately. You can change output while music is playing.
+6. **Disable** — flip the toggle off to disconnect and stop being discoverable
+
+### Audio output selection (v2.0)
+
+**System Default** follows your desktop's current default output. A specific choice is saved and reapplied to Bluetooth playback, including new streams when your phone reconnects. Devices refresh automatically. If your saved device is disconnected, Bluzy temporarily uses the system default and restores your choice when the device returns.
+
+The selector moves incoming Bluetooth playback without changing the desktop default or moving unrelated apps' streams. Switching a speaker/headphone port and adjusting output volume affect all apps already using that physical device. Ports reported unavailable are labeled; outputs from inactive sound-card profiles must first be enabled in your desktop Sound settings.
 
 ---
 
@@ -257,6 +266,7 @@ bluzy/
 │   ├── bluetooth_manager.py         # BlueZ D-Bus integration
 │   ├── bluetooth_agent.py           # Auto-accept pairing agent
 │   ├── audio_manager.py             # PipeWire/PulseAudio profiles
+│   ├── audio_outputs.py             # Output devices, ports, and playback routing
 │   ├── config_manager.py            # User preferences
 │   └── utils.py                     # System checks & helpers
 ├── resources/
@@ -333,6 +343,19 @@ python3 bluzy/main.py --debug
 - Use type hints for all function signatures
 - Add docstrings to all public classes and methods
 - Keep modules focused and loosely coupled
+
+### Tests
+
+```bash
+python3 -m unittest discover -s tests -v
+bash packaging/build-deb.sh
+```
+
+Output tests cover device and port discovery, Bluetooth-only routing, saved preferences, hotplug fallback, audio-service failures, and non-blocking GTK updates. To additionally exercise routing against a running PipeWire/PulseAudio server using temporary silent virtual devices:
+
+```bash
+python3 tests/integration_audio_outputs.py
+```
 
 ### Submitting Changes
 

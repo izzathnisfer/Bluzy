@@ -23,6 +23,9 @@ from typing import Optional
 
 from gi.repository import GLib, GObject
 
+from bluzy.audio_outputs import AudioOutputs
+from bluzy.config_manager import ConfigManager
+
 logger = logging.getLogger(__name__)
 
 # Regex to extract bluez card names from pactl output
@@ -77,8 +80,9 @@ class AudioManager(GObject.Object):
         ),
     }
 
-    def __init__(self) -> None:
+    def __init__(self, config: ConfigManager) -> None:
         super().__init__()
+        self.outputs = AudioOutputs(config)
         self._active_cards: set[str] = set()
         self._attempted_cards: set[str] = set()  # Tracks all seen cards
         self._monitor_source_id: Optional[int] = None
@@ -205,64 +209,15 @@ class AudioManager(GObject.Object):
     # ------------------------------------------------------------------
 
     def get_volume(self) -> Optional[int]:
-        """
-        Get the current default sink volume as a percentage.
-
-        Returns:
-            Volume percentage (0-100+), or None on failure.
-        """
-        try:
-            result = subprocess.run(
-                ["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode != 0:
-                return None
-
-            match = re.search(r"(\d+)%", result.stdout)
-            if match:
-                return int(match.group(1))
-            return None
-
-        except (subprocess.SubprocessError, FileNotFoundError):
-            return None
+        """Return the selected output's most recently discovered volume."""
+        return self.outputs.state.volume
 
     def set_volume(self, percent: int) -> bool:
-        """
-        Set the default sink volume.
-
-        Args:
-            percent: Volume level (0–150, values over 100 = boost).
-
-        Returns:
-            True if volume was set successfully.
-        """
-        percent = max(0, min(150, percent))
-
-        try:
-            result = subprocess.run(
-                [
-                    "pactl",
-                    "set-sink-volume",
-                    "@DEFAULT_SINK@",
-                    f"{percent}%",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                self.emit("volume-changed", percent)
-                return True
-
-            logger.warning("Failed to set volume: %s", result.stderr)
+        """Queue a volume change for the selected output without blocking GTK."""
+        if self.outputs.state.effective_sink is None:
             return False
-
-        except (subprocess.SubprocessError, FileNotFoundError) as exc:
-            logger.error("Volume control error: %s", exc)
-            return False
+        self.outputs.set_volume(percent)
+        return True
 
     # ------------------------------------------------------------------
     # Monitoring
@@ -275,6 +230,8 @@ class AudioManager(GObject.Object):
         When speaker mode is enabled, new cards may appear as devices
         connect. This poller detects them and switches their profile.
         """
+        self.outputs.routing_enabled = True
+        self.outputs.refresh()
         if self._monitor_source_id is not None:
             return
 
@@ -286,6 +243,7 @@ class AudioManager(GObject.Object):
 
     def stop_monitoring(self) -> None:
         """Stop the card monitoring poller."""
+        self.outputs.routing_enabled = False
         if self._monitor_source_id is not None:
             GLib.source_remove(self._monitor_source_id)
             self._monitor_source_id = None
@@ -411,6 +369,7 @@ class AudioManager(GObject.Object):
 
     def cleanup(self) -> None:
         """Stop monitoring and reset all profiles."""
+        self.outputs.cleanup()
         self.stop_monitoring()
         self.reset_profile()
         self._active_cards.clear()

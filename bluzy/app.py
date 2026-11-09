@@ -87,7 +87,7 @@ class BluzyApp(Adw.Application):
         self._config = ConfigManager()
 
         # Initialize managers
-        self._audio_manager = AudioManager()
+        self._audio_manager = AudioManager(self._config)
         self._bt_manager = BluetoothManager(self._config)
 
         # Set up D-Bus IPC service for tray communication

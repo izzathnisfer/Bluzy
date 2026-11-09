@@ -27,6 +27,7 @@
       <li>Configurable speaker name and pairing confirmation</li>
       <li>Auto-connect memory for trusted devices</li>
       <li>Volume control for incoming audio</li>
+      <li>Audio output selection with separate speaker and headphone ports</li>
       <li>Native GNOME look and feel with Libadwaita</li>
     </ul>
   </description>
@@ -56,13 +57,24 @@
 
   <categories>
     <category>Audio</category>
-    <category>Bluetooth</category>
     <category>Utility</category>
   </categories>
 
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.0.0" date="2026-11-09">
+      <description>
+        <p>Choose where your Bluetooth audio plays directly in Bluzy.</p>
+        <ul>
+          <li>Audio output selector for speakers, headphones, USB, HDMI, and other active outputs</li>
+          <li>Separate speaker and headphone ports on the same sound card</li>
+          <li>Remembered output with automatic discovery and reconnect fallback</li>
+          <li>Bluetooth playback routing and volume for the selected output</li>
+          <li>Background discovery and switching keep the interface responsive</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-03-31">
       <description>
         <p>Initial release of Bluzy.</p>
