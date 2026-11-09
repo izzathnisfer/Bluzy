@@ -1,5 +1,7 @@
 """Behavioral tests for output routing and its asynchronous GTK boundary."""
 
+import copy
+import itertools
 import json
 import subprocess
 import tempfile
@@ -14,6 +16,7 @@ from bluzy.audio_outputs import (
     AudioOutputs, OutputError, OutputState, OutputTarget, PulseAudioOutputs,
 )
 from bluzy.config_manager import ConfigManager
+from bluzy.audio_manager import AudioManager
 
 
 def sink(name="built-in", index=1, ports=True):
@@ -39,6 +42,8 @@ class AudioServer:
             {"index": 10, "sink": 1, "properties": {"node.name": "bluez_input.phone.0"}},
             {"index": 11, "sink": 1, "properties": {"node.name": "Firefox"}},
         ]
+        for stream in self.streams:
+            stream["volume"] = {"left": {"value": 65536}, "right": {"value": 65536}}
         self.modules = []
         self.calls = []
         self.fail_move = False
@@ -52,9 +57,6 @@ class AudioServer:
             result = json.dumps({"sinks": self.sinks, "sink-inputs": self.streams, "modules": self.modules}[args[2]])
         elif args == ["get-default-sink"]:
             result = self.default
-        elif args[0] == "set-sink-port":
-            selected = next(item for item in self.sinks if item["name"] == args[1])
-            selected["active_port"] = args[2]
         elif args[0] == "move-sink-input":
             if self.disappear_on_move:
                 self.streams = [stream for stream in self.streams if str(stream["index"]) != args[1]]
@@ -62,8 +64,10 @@ class AudioServer:
                 return subprocess.CompletedProcess(command, 1, "", "No such entity")
             stream = next(item for item in self.streams if str(item["index"]) == args[1])
             stream["sink"] = next(item["index"] for item in self.sinks if item["name"] == args[2])
-        elif args[0] == "set-sink-volume":
-            selected = next(item for item in self.sinks if item["name"] == args[1])
+        elif args[0] == "set-sink-input-volume":
+            selected = next((item for item in self.streams if str(item["index"]) == args[1]), None)
+            if selected is None:
+                return subprocess.CompletedProcess(command, 1, "", "No such entity")
             value = int(args[2].rstrip("%")) * 65536 / 100
             selected["volume"] = {"left": {"value": value}}
         else:
@@ -91,15 +95,12 @@ class OutputBackendTests(unittest.TestCase):
         self.addCleanup(self.patch.stop)
         self.backend = PulseAudioOutputs()
 
-    def test_separate_ports_and_portless_usb_output(self):
+    def test_lists_independent_sinks_not_shared_ports(self):
         state = self.backend.refresh()
         self.assertEqual({device.target for device in state.devices}, {
-            OutputTarget("built-in", "speakers"),
-            OutputTarget("built-in", "headphones"), OutputTarget("usb"),
+            OutputTarget("built-in"), OutputTarget("usb"),
         })
-        headphone = next(device for device in state.devices if device.target.port == "headphones")
-        self.assertIn("unavailable", headphone.label)
-        self.assertEqual(state.volume, 50)
+        self.assertEqual(state.volume, 100)
 
     def test_select_moves_only_phone_stream_and_preserves_default(self):
         state = self.backend.select(OutputTarget("usb"), route=True)
@@ -108,11 +109,29 @@ class OutputBackendTests(unittest.TestCase):
         self.assertEqual(self.server.streams[1]["sink"], 1)
         self.assertEqual(self.server.default, "built-in")
 
-    def test_switches_speaker_and_headphone_ports_on_same_sink(self):
-        self.backend.select(OutputTarget("built-in", "headphones"), route=True)
-        self.assertEqual(self.server.sinks[0]["active_port"], "headphones")
-        self.backend.select(OutputTarget("built-in", "speakers"), route=True)
-        self.assertEqual(self.server.sinks[0]["active_port"], "speakers")
+    def test_every_default_source_destination_and_other_app_combination(self):
+        self.server.sinks.extend([sink("hdmi", 3, False), sink("headset", 4, False)])
+        for default, source, destination, other in itertools.product(range(4), repeat=4):
+            with self.subTest(default=default, source=source, destination=destination, other=other):
+                self.server.default = self.server.sinks[default]["name"]
+                self.server.streams[0]["sink"] = self.server.sinks[source]["index"]
+                self.server.streams[1]["sink"] = self.server.sinks[other]["index"]
+                original_sinks = copy.deepcopy(self.server.sinks)
+                original_other = copy.deepcopy(self.server.streams[1])
+                original_default = self.server.default
+                self.backend.select(OutputTarget(self.server.sinks[destination]["name"]), route=True)
+                self.assertEqual(self.server.streams[0]["sink"], self.server.sinks[destination]["index"])
+                self.assertEqual(self.server.default, original_default)
+                self.assertEqual(self.server.sinks, original_sinks)
+                self.assertEqual(self.server.streams[1], original_other)
+
+    def test_selecting_while_idle_never_changes_device_ports_or_volumes(self):
+        self.server.streams = []
+        original = copy.deepcopy(self.server.sinks)
+        for target in (OutputTarget("usb"), OutputTarget("built-in"), None):
+            self.backend.select(target, route=False)
+            self.assertEqual(self.server.sinks, original)
+            self.assertEqual(self.server.default, "built-in")
 
     def test_saved_selection_routes_new_phone_stream(self):
         self.backend.select(OutputTarget("usb"), route=True)
@@ -146,11 +165,15 @@ class OutputBackendTests(unittest.TestCase):
         self.assertIsNone(state.preferred)
         self.assertEqual(self.server.streams[0]["sink"], 1)
 
-    def test_selected_volume_does_not_change_default_output(self):
+    def test_volume_changes_only_phone_stream_even_on_a_shared_output(self):
+        original_sinks = copy.deepcopy(self.server.sinks)
+        original_other = copy.deepcopy(self.server.streams[1])
         self.backend.select(OutputTarget("usb"), route=True)
-        self.backend.set_volume("usb", 30)
+        self.backend.set_volume(30, route=True)
         self.assertEqual(self.backend.refresh().volume, 30)
-        self.assertEqual(self.server.sinks[0]["volume"]["left"]["value"], 32768)
+        self.assertEqual(round(self.server.streams[0]["volume"]["left"]["value"] * 100 / 65536), 30)
+        self.assertEqual(self.server.sinks, original_sinks)
+        self.assertEqual(self.server.streams[1], original_other)
 
     def test_disabled_speaker_mode_does_not_move_streams(self):
         self.backend.select(OutputTarget("usb"), route=False)
@@ -174,12 +197,13 @@ class OutputBackendTests(unittest.TestCase):
             self.backend.select(OutputTarget("usb"), route=True)
         self.assertIsNone(self.backend.preferred)
 
-    def test_failed_switch_restores_the_previous_physical_port(self):
+    def test_failed_switch_never_touches_physical_ports(self):
         self.server.streams[0]["sink"] = 2
         self.server.fail_move = True
+        original_sinks = copy.deepcopy(self.server.sinks)
         with self.assertRaises(OutputError):
-            self.backend.select(OutputTarget("built-in", "headphones"), route=True)
-        self.assertEqual(self.server.sinks[0]["active_port"], "speakers")
+            self.backend.select(OutputTarget("built-in"), route=True)
+        self.assertEqual(self.server.sinks, original_sinks)
         self.assertIsNone(self.backend.preferred)
 
     def test_pulseaudio_bluetooth_loopback_and_unrelated_loopback(self):
@@ -200,8 +224,8 @@ class OutputBackendTests(unittest.TestCase):
         self.assertIsNone(state.effective_sink)
         self.assertEqual(state.devices, ())
 
-    def test_missing_selected_port_falls_back_to_default(self):
-        self.backend.preferred = OutputTarget("usb", "removed-port")
+    def test_missing_selected_sink_falls_back_to_default(self):
+        self.backend.preferred = OutputTarget("removed")
         state = self.backend.refresh(route=True)
         self.assertTrue(state.missing)
         self.assertEqual(state.effective_sink, "built-in")
@@ -233,7 +257,7 @@ class OutputAsyncTests(unittest.TestCase):
     def test_save_success_and_restore_on_restart(self):
         self.outputs.select(OutputTarget("usb"))
         self.wait()
-        self.assertEqual(self.config.get("audio_output"), {"sink": "usb", "port": None})
+        self.assertEqual(self.config.get("audio_output"), {"sink": "usb"})
         restarted = AudioOutputs(ConfigManager(self.temp.name))
         self.addCleanup(restarted.cleanup)
         self.assertEqual(restarted.state.preferred, OutputTarget("usb"))
@@ -273,14 +297,39 @@ class OutputAsyncTests(unittest.TestCase):
             release.set()
 
     def test_slider_coalesces_updates_and_refreshes_selected_volume(self):
+        self.outputs.routing_enabled = True
         self.outputs.select(OutputTarget("usb"))
         self.wait()
         for percent in range(10, 41):
             self.outputs.set_volume(percent)
         drain_until(lambda: self.outputs._volume_timer is None and self.outputs._pending == 0)
-        calls = [call for call in self.server.calls if call[0] == "set-sink-volume"]
-        self.assertEqual(calls, [["set-sink-volume", "usb", "40%"]])
+        calls = [call for call in self.server.calls if call[0] == "set-sink-input-volume"]
+        self.assertEqual(calls, [["set-sink-input-volume", "10", "40%"]])
         self.assertEqual(self.outputs.state.volume, 40)
+        self.assertEqual(self.config.get("bluetooth_volume"), 40)
+
+    def test_migrates_old_port_selection_without_any_shared_mutation(self):
+        self.config.set("audio_output", {"sink": "built-in", "port": "headphones"})
+        outputs = AudioOutputs(self.config)
+        self.addCleanup(outputs.cleanup)
+        outputs.routing_enabled = True
+        outputs.refresh()
+        drain_until(lambda: outputs._pending == 0)
+        self.assertEqual(outputs.state.preferred, OutputTarget("built-in"))
+        self.assertEqual(self.server.sinks[0]["active_port"], "speakers")
+
+    def test_volume_saved_without_playback_is_applied_to_reconnected_phone(self):
+        self.server.streams = []
+        self.outputs.set_volume(27)
+        drain_until(lambda: self.outputs._volume_timer is None and self.outputs._pending == 0)
+        restarted = AudioOutputs(ConfigManager(self.temp.name))
+        self.addCleanup(restarted.cleanup)
+        self.server.streams = [{"index": 50, "sink": 1, "properties": {"node.name": "bluez_input.new"}}]
+        restarted.routing_enabled = True
+        restarted.refresh()
+        drain_until(lambda: restarted._pending == 0)
+        self.assertEqual(restarted.state.volume, 27)
+        self.assertIn(["set-sink-input-volume", "50", "27%"], self.server.calls)
 
     def test_service_failure_recovers_without_repeated_notifications(self):
         errors = []
@@ -302,6 +351,18 @@ class OutputAsyncTests(unittest.TestCase):
             outputs = AudioOutputs(self.config)
             self.assertIsNone(outputs.state.preferred)
             outputs.cleanup()
+
+    def test_speaker_mode_lifecycle_never_changes_card_profiles(self):
+        audio = AudioManager(self.config)
+        self.addCleanup(audio.cleanup)
+        audio.start_monitoring()
+        drain_until(lambda: audio.outputs._pending == 0)
+        audio.stop_monitoring()
+        audio.cleanup()
+        mutations = [call[0] for call in self.server.calls
+                     if call[0] not in ("--format=json", "get-default-sink")]
+        self.assertTrue(all(command in ("move-sink-input", "set-sink-input-volume")
+                            for command in mutations))
 
 
 if __name__ == "__main__":

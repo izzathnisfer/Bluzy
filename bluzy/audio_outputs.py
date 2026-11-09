@@ -19,15 +19,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class OutputTarget:
-    """Stable PulseAudio sink and optional port names, suitable for saving."""
+    """An independently routable output, identified by its stable sink name."""
 
     sink: str
-    port: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class OutputDevice:
-    """One selectable output, including separate speaker/headphone ports."""
+    """One independently routable output, as in VLC's PulseAudio device list."""
 
     target: OutputTarget
     label: str
@@ -52,13 +51,17 @@ class OutputError(RuntimeError):
 class PulseAudioOutputs:
     """Synchronous pactl backend, used exclusively by a single worker thread.
 
-    Only Bluetooth playback streams are moved; the desktop default and other
-    applications' stream assignments are preserved. Ports and device volume
-    are shared by all applications using the same physical output.
+    Enumerate sinks and move only Bluetooth playback streams, matching VLC's
+    PulseAudio StreamMove behavior. Never change shared ports, card profiles,
+    device volumes, or the desktop default. A port on a sink is not a separate
+    stream destination and must not be presented as one.
     """
 
-    def __init__(self, preferred: Optional[OutputTarget] = None) -> None:
+    def __init__(
+        self, preferred: Optional[OutputTarget] = None, volume: int = 100
+    ) -> None:
         self.preferred = preferred
+        self.volume = max(0, min(100, volume))
 
     def _run(self, *args: str) -> str:
         try:
@@ -85,21 +88,14 @@ class PulseAudioOutputs:
 
     @staticmethod
     def _devices(sinks: list[dict]) -> tuple[OutputDevice, ...]:
-        devices = []
-        for sink in sinks:
-            name = sink["name"]
-            description = sink.get("description") or name
-            ports = sink.get("ports") or []
-            if not ports:
-                devices.append(OutputDevice(OutputTarget(name), description))
-            for port in ports:
-                label = f"{port.get('description') or port['name']} — {description}"
-                if port.get("availability") in ("not available", "no"):
-                    label += " (unavailable)"
-                devices.append(OutputDevice(OutputTarget(name, port["name"]), label))
+        devices = [
+            OutputDevice(OutputTarget(sink["name"]), sink.get("description") or sink["name"])
+            for sink in sinks
+        ]
         return tuple(sorted(devices, key=lambda device: (device.label, device.target.sink)))
 
-    def _move_bluetooth_streams(self, sink: dict) -> None:
+    def _bluetooth_streams(self) -> list[dict]:
+        """Identify incoming phone playback without claiming other apps' audio."""
         streams = self._list("sink-inputs")
         # PulseAudio's module-loopback identifies its capture source in module
         # arguments rather than in the playback stream properties.
@@ -117,20 +113,41 @@ class PulseAudioOutputs:
                     for arg in args
                 ):
                     loopback_modules.add(str(module["index"]))
+        bluetooth_streams = []
         for stream in streams:
             properties = stream.get("properties") or {}
             bluetooth = str(properties.get("node.name", "")).startswith("bluez_input.")
             bluetooth |= str(stream.get("owner_module")) in loopback_modules
-            if not bluetooth or str(stream.get("sink")) == str(sink["index"]):
-                continue
-            try:
-                self._run("move-sink-input", str(stream["index"]), sink["name"])
-            except OutputError:
-                # Streams can end between discovery and moving. Report genuine
-                # failures while allowing a phone to stop playback normally.
-                remaining = self._list("sink-inputs")
-                if any(item["index"] == stream["index"] for item in remaining):
-                    raise
+            if bluetooth:
+                bluetooth_streams.append(stream)
+        return bluetooth_streams
+
+    def _stream_command(self, stream: dict, *args: str) -> None:
+        """Ignore only streams that ended while a command was in flight."""
+        try:
+            self._run(*args)
+        except OutputError:
+            remaining = self._list("sink-inputs")
+            if any(item["index"] == stream["index"] for item in remaining):
+                raise
+
+    def _route_streams(self, sink: dict) -> None:
+        for stream in self._bluetooth_streams():
+            index = str(stream["index"])
+            if str(stream.get("sink")) != str(sink["index"]):
+                self._stream_command(stream, "move-sink-input", index, sink["name"])
+            self._set_stream_volume(stream)
+
+    def _set_stream_volume(self, stream: dict) -> None:
+        channels = list((stream.get("volume") or {}).values())
+        if channels and all(
+            round(channel["value"] * 100 / 65536) == self.volume
+            for channel in channels
+        ):
+            return
+        self._stream_command(
+            stream, "set-sink-input-volume", str(stream["index"]), f"{self.volume}%"
+        )
 
     def refresh(self, route: bool = False) -> OutputState:
         """Refresh devices and optionally maintain the Bluetooth playback route."""
@@ -151,24 +168,12 @@ class PulseAudioOutputs:
         if selected is None:
             return OutputState(devices=devices, preferred=self.preferred, missing=missing)
 
-        target = self.preferred if not missing else None
-        if route and target and target.port and selected.get("active_port") != target.port:
-            self._run("set-sink-port", selected["name"], target.port)
-            # Port changes may restore a different device volume.
-            selected = next(s for s in self._list("sinks") if s["name"] == selected["name"])
         if route:
-            self._move_bluetooth_streams(selected)
-        channels = list((selected.get("volume") or {}).values())
-        volume = (
-            round(sum(channel["value"] for channel in channels) / len(channels) * 100 / 65536)
-            if channels else None
+            self._route_streams(selected)
+        return OutputState(
+            devices, self.preferred, selected["name"],
+            selected.get("description", selected["name"]), self.volume, missing,
         )
-        active_target = OutputTarget(selected["name"], selected.get("active_port") or None)
-        label = next(
-            (device.label for device in devices if device.target == active_target),
-            selected.get("description", selected["name"]),
-        )
-        return OutputState(devices, self.preferred, selected["name"], label, volume, missing)
 
     def select(self, target: Optional[OutputTarget], route: bool) -> OutputState:
         """Apply a user choice, preserving the previous preference on failure."""
@@ -176,27 +181,24 @@ class PulseAudioOutputs:
         if target and not any(device.target == target for device in self._devices(sinks)):
             raise OutputError("That output is no longer connected. Choose another output.")
         previous = self.preferred
-        changed_sink = next(
-            (s for s in sinks if target and s["name"] == target.sink), None
-        )
-        previous_port = changed_sink.get("active_port") if changed_sink else None
         self.preferred = target
         try:
-            if target and target.port:
-                self._run("set-sink-port", target.sink, target.port)
             return self.refresh(route)
         except OutputError:
             self.preferred = previous
-            if target and target.port and previous_port and previous_port != target.port:
-                try:
-                    self._run("set-sink-port", target.sink, previous_port)
-                except OutputError:
-                    logger.warning("Could not restore the previous audio port.")
             raise
 
-    def set_volume(self, sink: str, percent: int) -> None:
-        """Change the selected device's volume, without changing the default."""
-        self._run("set-sink-volume", sink, f"{max(0, min(100, percent))}%")
+    def set_volume(self, percent: int, route: bool = False) -> None:
+        """Change only incoming Bluetooth stream volume, like VLC's VolumeSet."""
+        previous = self.volume
+        self.volume = max(0, min(100, percent))
+        try:
+            if route:
+                for stream in self._bluetooth_streams():
+                    self._set_stream_volume(stream)
+        except OutputError:
+            self.volume = previous
+            raise
 
 
 class AudioOutputs(GObject.Object):
@@ -213,9 +215,13 @@ class AudioOutputs(GObject.Object):
         saved = config.get("audio_output") or {}
         preferred = None
         if isinstance(saved, dict) and isinstance(saved.get("sink"), str):
-            port = saved.get("port")
-            preferred = OutputTarget(saved["sink"], port if isinstance(port, str) else None)
-        self._backend = PulseAudioOutputs(preferred)
+            # Migrate 2.0.0 preferences by keeping the sink and ignoring its
+            # shared port. Never reapply that old port choice.
+            preferred = OutputTarget(saved["sink"])
+        volume = config.get("bluetooth_volume", 100)
+        if not isinstance(volume, int):
+            volume = 100
+        self._backend = PulseAudioOutputs(preferred, volume)
         self.state = OutputState(preferred=preferred)
         self.selecting = False
         self.available = False
@@ -233,14 +239,16 @@ class AudioOutputs(GObject.Object):
             self.refresh()
             self._timer = GLib.timeout_add_seconds(2, self.refresh)
 
-    def _submit(self, operation, *, save: bool = False) -> None:
+    def _submit(self, operation, *, save: bool = False, save_volume: bool = False) -> None:
         if self._closed:
             return
         self._pending += 1
         future = self._executor.submit(operation)
-        future.add_done_callback(lambda done: GLib.idle_add(self._complete, done, save))
+        future.add_done_callback(
+            lambda done: GLib.idle_add(self._complete, done, save, save_volume)
+        )
 
-    def _complete(self, future, save: bool) -> bool:
+    def _complete(self, future, save: bool, save_volume: bool) -> bool:
         self._pending -= 1
         if self._closed:
             return False
@@ -253,8 +261,10 @@ class AudioOutputs(GObject.Object):
                 target = self.state.preferred
                 self._config.set(
                     "audio_output",
-                    {"sink": target.sink, "port": target.port} if target else None,
+                    {"sink": target.sink} if target else None,
                 )
+            if save_volume:
+                self._config.set("bluetooth_volume", self.state.volume)
             self._last_error = None
         except Exception as exc:
             logger.warning("Audio output operation failed: %s", exc)
@@ -290,16 +300,18 @@ class AudioOutputs(GObject.Object):
         """Coalesce slider updates; never run pactl on the GTK main thread."""
         if self._volume_timer is not None:
             GLib.source_remove(self._volume_timer)
-        sink = self.state.effective_sink
-        if sink and not self._closed:
-            self._volume_timer = GLib.timeout_add(120, self._apply_volume, sink, percent)
+        if not self._closed:
+            self._volume_timer = GLib.timeout_add(120, self._apply_volume, percent)
 
-    def _apply_volume(self, sink: str, percent: int) -> bool:
+    def _apply_volume(self, percent: int) -> bool:
         self._volume_timer = None
+        route = self.routing_enabled
+
         def update():
-            self._backend.set_volume(sink, percent)
+            self._backend.set_volume(percent, route)
             return self._backend.refresh()
-        self._submit(update)
+
+        self._submit(update, save_volume=True)
         return False
 
     def cleanup(self) -> None:

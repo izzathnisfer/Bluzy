@@ -243,7 +243,7 @@ class BluzyWindow(Adw.ApplicationWindow):
     # ------------------------------------------------------------------
 
     def _build_output_section(self) -> Gtk.Widget:
-        """Choose a playback device or a port on a device."""
+        """Choose an independent playback destination for Bluzy's audio."""
         group = Adw.PreferencesGroup(title="Audio Output")
         self._output_row = Adw.ComboRow(
             title="Playback Device",
@@ -304,8 +304,8 @@ class BluzyWindow(Adw.ApplicationWindow):
     def _build_volume_section(self) -> Gtk.Widget:
         """Volume control slider for incoming audio."""
         group = Adw.PreferencesGroup(
-            title="Output Volume",
-            description="Device volume is shared with other apps using this output.",
+            title="Bluzy Volume",
+            description="Adjust only the audio received from your phone.",
         )
 
         box = Gtk.Box(
@@ -394,7 +394,6 @@ class BluzyWindow(Adw.ApplicationWindow):
         else:
             self._bt.disable()
             self._audio.stop_monitoring()
-            self._audio.reset_profile()
             self._show_toast("Speaker mode disabled")
 
     def _on_alias_changed(self, entry: Adw.EntryRow) -> None:
@@ -582,8 +581,9 @@ class BluzyWindow(Adw.ApplicationWindow):
             f"{count} device{'s' if count != 1 else ''} connected"
         )
 
-        # Set the audio profile to A2DP sink for the new device
-        self._audio.set_a2dp_sink()
+        # The audio server negotiates the phone's profile. Only refresh Bluzy's
+        # stream route; never force profiles on unrelated Bluetooth outputs.
+        self._audio.outputs.refresh()
 
     def _on_device_disconnected(self, _manager, address: str) -> None:
         """Remove a disconnected device from the UI list."""

@@ -42,6 +42,7 @@ class OutputWindowTests(unittest.TestCase):
         drain_until(lambda: self.audio.outputs.available)
 
     def test_dropdown_switches_output_and_volume_targets_selection(self):
+        self.audio.outputs.routing_enabled = True
         target = OutputTarget("usb")
         index = self.window._output_targets.index(target)
         self.window._output_row.set_selected(index)
@@ -50,7 +51,7 @@ class OutputWindowTests(unittest.TestCase):
         self.assertEqual(self.window._output_row.get_selected(), index)
         self.window._volume_scale.set_value(35)
         drain_until(lambda: self.audio.outputs._volume_timer is None and self.audio.outputs._pending == 0)
-        self.assertIn(["set-sink-volume", "usb", "35%"], self.server.calls)
+        self.assertIn(["set-sink-input-volume", "10", "35%"], self.server.calls)
 
     def test_hotplug_refresh_never_selects_another_device_by_index(self):
         self.audio.outputs.select(OutputTarget("usb"))

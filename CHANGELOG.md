@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 — 2026-11-09
+
+- Correct output selection to follow VLC's PulseAudio model: list independent sinks and move only incoming Bluetooth playback.
+- Remove shared hardware-port switching; selecting a Bluzy output leaves desktop output settings and other apps alone.
+- Replace device-volume changes with saved Bluetooth stream volume.
+- Remove forced Bluetooth-card profile switching/resetting that could disrupt other Bluetooth outputs.
+- Migrate old saved output preferences without restoring their shared port choice.
+- Add 256 routing combinations and silent tests on real outputs, checking the desktop default, physical ports, device volume, and unrelated streams remain unchanged.
+
 ## 2.0.0 — 2026-11-09
 
 - Choose the playback output directly in Bluzy: laptop speakers, wired headphones, USB audio, HDMI, and other outputs exposed by PipeWire/PulseAudio.

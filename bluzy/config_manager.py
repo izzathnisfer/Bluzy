@@ -29,6 +29,7 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "require_pairing_confirmation": True,
     "auto_enable_devices": {},
     "audio_output": None,
+    "bluetooth_volume": 100,
     # Example entry in auto_enable_devices:
     # "AA:BB:CC:DD:EE:FF": {
     #     "name": "iPhone 15",
