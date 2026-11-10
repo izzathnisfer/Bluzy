@@ -1,0 +1,60 @@
+# Publish only the explicitly requested v2.0.1 release. Other tags and ordinary
+# branch pushes cannot trigger this workflow or publish future versions.
+name: Publish v2.0.1
+
+on:
+  push:
+    tags: [v2.0.1]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo python3-dbus gir1.2-gtk-4.0 gir1.2-adw-1 xvfb dbus-x11
+      - name: Verify version and run tests
+        env:
+          GSETTINGS_BACKEND: memory
+        run: |
+          test "$(python3 -c 'from bluzy import __version__; print(__version__)')" = 2.0.1
+          dbus-run-session -- xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Build package and checksum
+        run: |
+          bash packaging/build-deb.sh
+          (cd dist && sha256sum bluzy_2.0.1_all.deb > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bluzy-v2.0.1-release
+          path: |
+            dist/bluzy_2.0.1_all.deb
+            dist/SHA256SUMS
+
+  publish:
+    if: github.ref == 'refs/tags/v2.0.1'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bluzy-v2.0.1-release
+          path: dist
+      - name: Publish only v2.0.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v2.0.1 >/dev/null 2>&1; then
+            echo 'Release v2.0.1 already exists; leaving it unchanged.'
+            exit 0
+          fi
+          gh release create v2.0.1 dist/bluzy_2.0.1_all.deb dist/SHA256SUMS \
+            --verify-tag --title 'Bluzy v2.0.1 — Independent Audio Output' \
+            --notes-file RELEASE_NOTES.md --latest

@@ -185,6 +185,7 @@ Description: Bluetooth Speaker Mode for Ubuntu
   - Configurable speaker name and pairing confirmation
   - Auto-connect memory for trusted devices
   - Volume control for incoming audio
+  - Independent audio output selection and Bluetooth playback volume
   - Native GNOME look and feel with GTK4 + Libadwaita
 CONTROL_EOF
 

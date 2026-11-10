@@ -1,0 +1,30 @@
+name: Tests and Debian package
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runtime and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-gi-cairo python3-dbus gir1.2-gtk-4.0 gir1.2-adw-1 xvfb dbus-x11
+      - name: Run backend and GTK tests
+        env:
+          GSETTINGS_BACKEND: memory
+        run: dbus-run-session -- xvfb-run -a /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Build and inspect Debian package
+        run: |
+          bash packaging/build-deb.sh
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --extract dist/*.deb /tmp/bluzy-package
+          test -f /tmp/bluzy-package/opt/bluzy/bluzy/audio_outputs.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bluzy-debian-package
+          path: dist/*.deb
