@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.1 — 2026-11-09
+## 2.0.1 — 2026-11-10
 
 - Correct output selection to follow VLC's PulseAudio model: list independent sinks and move only incoming Bluetooth playback.
 - Remove shared hardware-port switching; selecting a Bluzy output leaves desktop output settings and other apps alone.
